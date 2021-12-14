@@ -1,6 +1,7 @@
 import os
 import shutil
 import time
+import tempfile
 from glob import glob
 from itertools import zip_longest
 from multiprocessing import Pool
@@ -40,7 +41,11 @@ def get_connectors_names() -> Set[str]:
     names = set()
     for name in glob("source-*"):
         if os.path.exists(os.path.join(name, "setup.py")):
-            names.add(name.split("source-", 1)[1].rstrip())
+
+            # FIXME: resolve the problem with this kind of connectors:
+            if not name.endswith("-singer"):
+
+                names.add(name.split("source-", 1)[1].rstrip())
     os.chdir(cur_dir)
     return names
 
@@ -55,7 +60,7 @@ def run_task(args) -> Tuple[bool, str]:
 
     runner = Popen("bash", shell=True, stdin=PIPE, stdout=PIPE, stderr=PIPE)
 
-    venv_name = str(uuid4())
+    venv_name = tempfile.mkdtemp(dir=os.curdir)
     commands = [
         f"virtualenv {venv_name}",
         f"source {os.path.join(venv_name, 'bin', 'activate')}",
@@ -83,7 +88,9 @@ def apply_task_for_connectors(connectors_names: str, task_name: str):
 
 @task
 def mypy(ctx, connectors=None):
+    start = time.time()
     apply_task_for_connectors(connectors, "mypy")
+    print((time.time() - start) / 60)
 
 
 @task
